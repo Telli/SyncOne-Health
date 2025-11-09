@@ -7,9 +7,11 @@ import com.syncone.health.domain.model.enums.ThreadStatus
 import com.syncone.health.domain.model.enums.UrgencyLevel
 import com.syncone.health.domain.usecase.GetThreadsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,6 +26,8 @@ class SmsMonitorViewModel @Inject constructor(
     private val _selectedFilter = MutableStateFlow(ThreadFilter.ALL)
     val selectedFilter: StateFlow<ThreadFilter> = _selectedFilter.asStateFlow()
 
+    private var observeJob: Job? = null
+
     init {
         observeThreads(ThreadFilter.ALL)
     }
@@ -34,7 +38,9 @@ class SmsMonitorViewModel @Inject constructor(
     }
 
     private fun observeThreads(filter: ThreadFilter) {
-        viewModelScope.launch {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            _uiState.value = UiState.Loading
             val flow = when (filter) {
                 ThreadFilter.ALL -> getThreadsUseCase.all()
                 ThreadFilter.CRITICAL -> getThreadsUseCase.byUrgency(UrgencyLevel.CRITICAL)
@@ -42,7 +48,7 @@ class SmsMonitorViewModel @Inject constructor(
                 ThreadFilter.RESOLVED -> getThreadsUseCase.byStatus(ThreadStatus.RESOLVED)
             }
 
-            flow.collect { threads ->
+            flow.collectLatest { threads ->
                 _uiState.value = if (threads.isEmpty()) {
                     UiState.Empty
                 } else {

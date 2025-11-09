@@ -97,19 +97,21 @@ class EmbeddingModel(private val context: Context) {
             val outputTensor = Array(1) { FloatArray(EMBEDDING_DIM) }
 
             // Run inference
-            interpreter.run(
-                mapOf(
-                    0 to inputTensor,
-                    1 to maskTensor
-                ),
-                mapOf(0 to outputTensor)
-            )
+            val inputs = arrayOf<Any>(inputTensor, maskTensor)
+            val outputs = mutableMapOf<Int, Any>(0 to outputTensor)
+            interpreter.runForMultipleInputsOutputs(inputs, outputs)
 
             // Normalize (for cosine similarity)
             val embedding = outputTensor[0]
-            val norm = sqrt(embedding.map { it * it }.sum())
+            val norm = sqrt(embedding.fold(0.0) { acc, value -> acc + (value * value).toDouble() }).toFloat()
 
-            return@withContext embedding.map { it / norm }.toFloatArray()
+            if (norm == 0f || norm.isNaN() || norm.isInfinite()) {
+                return@withContext FloatArray(EMBEDDING_DIM) { 0f }
+            }
+
+            return@withContext FloatArray(embedding.size) { index ->
+                embedding[index] / norm
+            }
 
         } catch (e: Exception) {
             Timber.e(e, "Embedding generation failed")
