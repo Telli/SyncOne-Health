@@ -112,6 +112,8 @@ public class PrimaryCareAgent : IAgent
             response.Contains(g.Content.Split(' ').Take(5).FirstOrDefault() ?? "",
                 StringComparison.OrdinalIgnoreCase));
 
+        if (!guidelines.Any())
+            return 0.5f;
         var baseConfidence = guidelines.Average(g => g.Score);
         var bonus = referencesGuidelines ? 0.1f : 0f;
 
