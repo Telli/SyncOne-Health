@@ -24,17 +24,7 @@ public class MedGemmaService : IMedGemmaService
         _config = config;
         _logger = logger;
 
-        // Configure endpoint
-        var endpoint = _config["MedGemma:Endpoint"]
-            ?? throw new InvalidOperationException("MedGemma endpoint not configured");
-        _httpClient.BaseAddress = new Uri(endpoint);
-
-        // Add API key if configured
-        var apiKey = _config["MedGemma:ApiKey"];
-        if (!string.IsNullOrEmpty(apiKey))
-        {
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-        }
+        // HttpClient configuration (BaseAddress, headers) is handled in DI registration.
     }
 
     public async Task<string> GenerateAsync(
