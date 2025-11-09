@@ -102,6 +102,11 @@ public class MaternalHealthAgent : IAgent
     private float CalculateMaternalConfidence(string response, List<RagChunk> guidelines)
     {
         // Lower confidence threshold for maternal health (safety-critical)
+        if (guidelines.Count == 0)
+        {
+            return 0.3f; // Fallback confidence when no guidelines are available
+        }
+        
         return Math.Clamp(guidelines.Average(g => g.Score) * 0.9f, 0f, 0.85f);
     }
 }
