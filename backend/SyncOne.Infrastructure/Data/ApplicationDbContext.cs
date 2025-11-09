@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<GuidelineChunk> GuidelineChunks { get; set; }
     public DbSet<FeedbackEntry> Feedback { get; set; }
     public DbSet<Alert> Alerts { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +48,15 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.CreatedAt);
             entity.HasIndex(e => new { e.PhoneNumber, e.Urgency });
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.AdminId);
+            entity.HasIndex(e => e.DeviceId);
+            entity.HasIndex(e => e.Action);
         });
     }
 }

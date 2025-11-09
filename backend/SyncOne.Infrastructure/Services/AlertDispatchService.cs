@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SyncOne.Core.Services;
 using SyncOne.Infrastructure.Data;
@@ -14,15 +15,24 @@ public class AlertDispatchService : IAlertService
 {
     private readonly ApplicationDbContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _config;
+    private readonly TwilioSmsService? _twilioService;
+    private readonly FirebaseCloudMessagingService? _fcmService;
     private readonly ILogger<AlertDispatchService> _logger;
 
     public AlertDispatchService(
         ApplicationDbContext context,
         IHttpClientFactory httpClientFactory,
-        ILogger<AlertDispatchService> logger)
+        IConfiguration config,
+        ILogger<AlertDispatchService> logger,
+        TwilioSmsService? twilioService = null,
+        FirebaseCloudMessagingService? fcmService = null)
     {
         _context = context;
         _httpClientFactory = httpClientFactory;
+        _config = config;
+        _twilioService = twilioService;
+        _fcmService = fcmService;
         _logger = logger;
     }
 
@@ -76,16 +86,51 @@ public class AlertDispatchService : IAlertService
 
     private async Task SendPushNotificationAsync(Alert alert, CancellationToken cancellationToken)
     {
-        // TODO: Integrate Firebase Cloud Messaging or similar
-        _logger.LogInformation("Would send push notification for alert {AlertId}", alert.Id);
-        await Task.CompletedTask;
+        if (_fcmService == null)
+        {
+            _logger.LogWarning("FCM service not configured, skipping push notification for alert {AlertId}", alert.Id);
+            return;
+        }
+
+        // Get CHW device token from configuration (in production, fetch from database)
+        var chwDeviceToken = _config["Alerts:CHW:DeviceToken"];
+        if (string.IsNullOrEmpty(chwDeviceToken))
+        {
+            _logger.LogWarning("CHW device token not configured, skipping push notification");
+            return;
+        }
+
+        await _fcmService.SendAlertNotificationAsync(
+            chwDeviceToken,
+            alert.Urgency,
+            alert.PhoneNumber ?? "Unknown",
+            alert.Message,
+            alert.Id.ToString(),
+            cancellationToken);
     }
 
     private async Task SendSmsToChwAsync(Alert alert, CancellationToken cancellationToken)
     {
-        // TODO: Integrate Twilio or similar SMS gateway
-        _logger.LogInformation("Would send SMS to CHW for alert {AlertId}", alert.Id);
-        await Task.CompletedTask;
+        if (_twilioService == null)
+        {
+            _logger.LogWarning("Twilio service not configured, skipping SMS for alert {AlertId}", alert.Id);
+            return;
+        }
+
+        // Get CHW phone number from configuration (in production, fetch from database)
+        var chwPhoneNumber = _config["Alerts:CHW:PhoneNumber"];
+        if (string.IsNullOrEmpty(chwPhoneNumber))
+        {
+            _logger.LogWarning("CHW phone number not configured, skipping SMS");
+            return;
+        }
+
+        await _twilioService.SendAlertSmsAsync(
+            chwPhoneNumber,
+            alert.PhoneNumber ?? "Unknown",
+            alert.Urgency,
+            alert.Message,
+            cancellationToken);
     }
 
     private async Task CallWebhookAsync(Alert alert, CancellationToken cancellationToken)

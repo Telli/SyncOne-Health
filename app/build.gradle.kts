@@ -37,9 +37,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // Production API configuration
+            buildConfigField("String", "API_BASE_URL", "\"https://api.syncone.health/api/v1/\"")
+            buildConfigField("String", "API_KEY", "\"\"") // Set via environment variable
         }
         debug {
             isMinifyEnabled = false
+
+            // Development API configuration (Android emulator localhost)
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/api/v1/\"")
+            buildConfigField("String", "API_KEY", "\"dev-key\"")
         }
     }
 

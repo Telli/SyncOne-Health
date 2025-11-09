@@ -48,11 +48,27 @@ builder.Services.AddHttpClient("FCM", client =>
     }
 });
 
+builder.Services.AddHttpClient("Twilio");
+
+// Repositories
+builder.Services.AddScoped<SyncOne.Infrastructure.Repositories.AuditLogRepository>();
+
 // Services
 builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IAlertService, AlertDispatchService>();
 builder.Services.AddScoped<IFeedbackService, FeedbackStorageService>();
 builder.Services.AddSingleton<RemoteWipeService>();
+
+// Optional services (only registered if configured)
+if (!string.IsNullOrEmpty(builder.Configuration["Twilio:AccountSid"]))
+{
+    builder.Services.AddScoped<TwilioSmsService>();
+}
+
+if (!string.IsNullOrEmpty(builder.Configuration["FCM:ServerKey"]))
+{
+    builder.Services.AddScoped<FirebaseCloudMessagingService>();
+}
 
 // Semantic Kernel for AI agents
 builder.Services.AddSingleton(sp =>

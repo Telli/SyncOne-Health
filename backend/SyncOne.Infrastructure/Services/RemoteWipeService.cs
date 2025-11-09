@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SyncOne.Infrastructure.Repositories;
 
 namespace SyncOne.Infrastructure.Services;
 
@@ -13,15 +14,21 @@ public class RemoteWipeService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
+    private readonly AuditLogRepository _auditLogRepository;
+    private readonly FirebaseCloudMessagingService? _fcmService;
     private readonly ILogger<RemoteWipeService> _logger;
 
     public RemoteWipeService(
         IHttpClientFactory httpClientFactory,
         IConfiguration config,
-        ILogger<RemoteWipeService> logger)
+        AuditLogRepository auditLogRepository,
+        ILogger<RemoteWipeService> logger,
+        FirebaseCloudMessagingService? fcmService = null)
     {
         _httpClientFactory = httpClientFactory;
         _config = config;
+        _auditLogRepository = auditLogRepository;
+        _fcmService = fcmService;
         _logger = logger;
     }
 
@@ -29,6 +36,8 @@ public class RemoteWipeService
         string deviceId,
         string adminId,
         string reason,
+        string ipAddress = "",
+        string? userAgent = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -39,30 +48,43 @@ public class RemoteWipeService
                 adminId,
                 reason);
 
-            // Send wipe command via FCM (Firebase Cloud Messaging)
-            var client = _httpClientFactory.CreateClient("FCM");
+            // Generate wipe token
+            var wipeToken = GenerateWipeToken(deviceId, adminId);
 
-            var message = new
+            // Send wipe command via FCM
+            if (_fcmService != null)
             {
-                to = $"/topics/device_{deviceId}",
-                data = new
+                var data = new Dictionary<string, string>
                 {
-                    action = "REMOTE_WIPE",
-                    auth_token = GenerateWipeToken(deviceId, adminId),
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                }
-            };
+                    { "action", "REMOTE_WIPE" },
+                    { "auth_token", wipeToken },
+                    { "timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString() }
+                };
 
-            var response = await client.PostAsJsonAsync(
-                "/fcm/send",
-                message,
-                cancellationToken);
+                await _fcmService.SendTopicNotificationAsync(
+                    $"device_{deviceId}",
+                    "Security Alert",
+                    "Remote wipe initiated by administrator",
+                    data,
+                    cancellationToken);
 
-            response.EnsureSuccessStatusCode();
+                _logger.LogInformation("Wipe command sent successfully to device {DeviceId}", deviceId);
+            }
+            else
+            {
+                _logger.LogWarning("FCM service not configured, wipe command not sent");
+            }
 
-            _logger.LogInformation("Wipe command sent successfully to device {DeviceId}", deviceId);
-
-            // TODO: Store in audit log database
+            // Store in audit log database
+            await _auditLogRepository.CreateAsync(
+                action: "REMOTE_WIPE",
+                adminId: adminId,
+                details: $"Remote wipe initiated for device {deviceId}",
+                reason: reason,
+                deviceId: deviceId,
+                ipAddress: ipAddress,
+                userAgent: userAgent,
+                cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
