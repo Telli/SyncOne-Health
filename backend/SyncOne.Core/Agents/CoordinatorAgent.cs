@@ -188,17 +188,17 @@ public class CoordinatorAgent : IAgent
     {
         const int MaxLength = 480;
 
-        if (text.Length <= MaxLength)
-            return text;
+        if (string.IsNullOrEmpty(text) || text.Length <= MaxLength)
+            return text ?? string.Empty;
 
         // Truncate at sentence boundary
         var lastPeriod = text.LastIndexOf('.', Math.Min(MaxLength - 20, text.Length - 1));
 
         if (lastPeriod > MaxLength / 2)
-            return text.Substring(0, lastPeriod + 1).Trim();
+            return text[..(lastPeriod + 1)].Trim();
 
         // Hard truncate with ellipsis
-        return text.Substring(0, MaxLength - 3) + "...";
+        return text[..(MaxLength - 3)] + "...";
     }
 
     private bool ContainsHarmfulAdvice(string message)
