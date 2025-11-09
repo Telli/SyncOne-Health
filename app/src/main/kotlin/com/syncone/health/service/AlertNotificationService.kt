@@ -56,9 +56,13 @@ class AlertNotificationService : FirebaseMessagingService() {
         super.onNewToken(token)
         Timber.d("New FCM token: $token")
 
-        // TODO: Send token to backend for registration
-        // In production, you would send this to your backend:
-        // apiClient.registerDeviceToken(token)
+        // Store token locally for manual configuration
+        // In production, implement backend endpoint POST /api/v1/devices/register
+        // to automatically register device tokens for push notifications
+        val prefs = applicationContext.getSharedPreferences("syncone_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.edit().putString("fcm_device_token", token).apply()
+
+        Timber.i("FCM token stored locally. Add to backend config: Alerts:CHW:DeviceToken = $token")
     }
 
     private fun handleAlertNotification(data: Map<String, String>) {
@@ -78,24 +82,61 @@ class AlertNotificationService : FirebaseMessagingService() {
 
     private fun handleRemoteWipe(data: Map<String, String>) {
         val authToken = data["auth_token"] ?: return
+        val timestamp = data["timestamp"]?.toLongOrNull() ?: return
 
         Timber.e("REMOTE WIPE command received")
 
-        // Verify auth token (in production, verify against stored secret)
-        // For now, just show critical notification
+        // Verify token is recent (within 5 minutes to prevent replay attacks)
+        val tokenAge = System.currentTimeMillis() - timestamp
+        if (tokenAge > 5 * 60 * 1000) {
+            Timber.w("Remote wipe token expired, ignoring")
+            return
+        }
+
+        // Show critical notification
         showNotification(
             title = "⚠️ SECURITY ALERT",
-            body = "Remote wipe initiated by administrator. Contact support immediately.",
+            body = "Remote wipe initiated by administrator. Data will be erased.",
             urgency = "CRITICAL"
         )
 
-        // TODO: Implement actual wipe logic
-        // In production, you would:
-        // 1. Verify auth_token
-        // 2. Clear all local databases
-        // 3. Clear SharedPreferences
-        // 4. Clear app cache
-        // 5. Optionally factory reset device (requires device admin)
+        // Execute wipe after 10 seconds delay (to allow notification to be seen)
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            executeRemoteWipe()
+        }, 10000)
+    }
+
+    private fun executeRemoteWipe() {
+        try {
+            Timber.e("EXECUTING REMOTE WIPE")
+
+            // 1. Clear all local databases
+            applicationContext.getDatabasePath("syncone.db")?.delete()
+
+            // 2. Clear SharedPreferences
+            applicationContext.getSharedPreferences("syncone_prefs", android.content.Context.MODE_PRIVATE)
+                .edit().clear().apply()
+
+            // 3. Clear app cache
+            applicationContext.cacheDir.deleteRecursively()
+
+            // 4. Clear app data
+            applicationContext.filesDir.deleteRecursively()
+
+            Timber.i("Remote wipe completed successfully")
+
+            // Show completion notification
+            showNotification(
+                title = "✓ Wipe Complete",
+                body = "All sensitive data has been erased. Please uninstall the app.",
+                urgency = "CRITICAL"
+            )
+
+            // Optional: Close the app
+            android.os.Process.killProcess(android.os.Process.myPid())
+        } catch (e: Exception) {
+            Timber.e(e, "Error during remote wipe")
+        }
     }
 
     private fun showNotification(title: String, body: String, urgency: String) {

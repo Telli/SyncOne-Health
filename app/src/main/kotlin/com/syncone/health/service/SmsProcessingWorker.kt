@@ -165,7 +165,8 @@ class SmsProcessingWorker @AssistedInject constructor(
         // Set status to PENDING (not sent yet)
         sendSmsReplyUseCase.updateStatus(messageId, MessageStatus.PENDING)
 
-        // TODO: Notify CHW for review
+        // Notify CHW for review via local notification
+        showReviewNotification(phoneNumber, messageId, confidence, message)
         Timber.d("Message $messageId held for CHW review (confidence: $confidence)")
     }
 
@@ -194,6 +195,46 @@ class SmsProcessingWorker @AssistedInject constructor(
             .build()
 
         notificationManager.notify(phoneNumber.hashCode(), notification)
+    }
+
+    private fun showReviewNotification(phoneNumber: String, messageId: String, confidence: Float, message: String) {
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Create channel if needed
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "chw_review",
+                "CHW Review Needed",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Messages requiring CHW review before sending"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // Create intent to open the app
+        val intent = applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Build notification
+        val confidencePercent = (confidence * 100).toInt()
+        val notification = NotificationCompat.Builder(applicationContext, "chw_review")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Review Required")
+            .setContentText("Low confidence ($confidencePercent%) - Review message from $phoneNumber")
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText("Low confidence response ($confidencePercent%). Please review before sending.\n\nFrom: $phoneNumber"))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(messageId.hashCode(), notification)
     }
 
     companion object {

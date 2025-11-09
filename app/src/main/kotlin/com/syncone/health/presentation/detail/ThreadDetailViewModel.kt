@@ -78,7 +78,7 @@ class ThreadDetailViewModel @Inject constructor(
                     threadId = threadId,
                     content = text,
                     isManual = true,
-                    chwId = "chw_demo" // TODO: Get from auth
+                    chwId = "chw_default" // CHW authentication to be implemented in future release
                 )
 
                 // Send SMS
