@@ -66,20 +66,11 @@ class SmartRoutingUseCase @Inject constructor(
                         cloudInference(promptContext)
                     } catch (e: Exception) {
                         Timber.e(e, "Cloud inference failed, falling back to local")
-                        localInference(promptContext).copy(
-                            response = localInference(promptContext).response +
-                                    "\n\n[Limited info - connect for detailed advice]",
-                            confidence = localInference(promptContext).confidence * 0.7f
-                        )
+                        runLocalFallback(promptContext, "[Limited info - connect for detailed advice]")
                     }
                 } else {
-                    // Offline fallback
                     Timber.d("Offline, using local inference")
-                    localInference(promptContext).copy(
-                        response = localInference(promptContext).response +
-                                "\n\n[Offline mode - connect for comprehensive guidance]",
-                        confidence = localInference(promptContext).confidence * 0.7f
-                    )
+                    runLocalFallback(promptContext, "[Offline mode - connect for comprehensive guidance]")
                 }
             }
         }
@@ -127,6 +118,32 @@ class SmartRoutingUseCase @Inject constructor(
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private suspend fun runLocalFallback(
+        promptContext: PromptContext,
+        suffix: String,
+        confidenceScale: Float = 0.7f
+    ): InferenceResult {
+        return try {
+            val localResult = localInference(promptContext)
+            val trimmedSuffix = suffix.trim()
+            val combinedResponse = buildString {
+                append(localResult.response.trim())
+                if (trimmedSuffix.isNotEmpty()) {
+                    if (isNotEmpty()) append("\n\n")
+                    append(trimmedSuffix)
+                }
+            }.trim()
+
+            localResult.copy(
+                response = combinedResponse,
+                confidence = (localResult.confidence * confidenceScale).coerceIn(0f, 1f)
+            )
+        } catch (fallbackError: Exception) {
+            Timber.e(fallbackError, "Local fallback failed")
+            createErrorResult("AI temporarily unavailable. Please try again.")
+        }
     }
 
     /**

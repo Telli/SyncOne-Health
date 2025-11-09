@@ -12,7 +12,12 @@ object TokenCounter {
      * Rough approximation: word count * 1.3
      */
     fun estimate(text: String): Int {
-        val wordCount = text.trim().split(Regex("\\s+")).size
+        val normalized = text.trim()
+        if (normalized.isEmpty()) {
+            return 0
+        }
+
+        val wordCount = normalized.split(Regex("\\s+")).size
         return (wordCount * 1.3).toInt()
     }
 
