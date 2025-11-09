@@ -1,0 +1,98 @@
+[
+  {
+    "content": "For fever above 38°C (100.4°F): Rest, drink plenty of fluids, and take paracetamol or ibuprofen. Seek medical care if fever persists beyond 3 days, or if accompanied by severe headache, stiff neck, or difficulty breathing.",
+    "metadata": {
+      "source": "WHO_Fever_Guidelines",
+      "category": "symptom_management",
+      "severity": "moderate"
+    }
+  },
+  {
+    "content": "Diarrhea treatment: Oral Rehydration Solution (ORS) is essential to prevent dehydration. Give zinc supplements to children. Seek urgent care if there is blood in stool, signs of severe dehydration (sunken eyes, lethargy), or if diarrhea persists beyond 3 days.",
+    "metadata": {
+      "source": "WHO_Diarrhea_Protocol",
+      "category": "gastrointestinal",
+      "severity": "moderate"
+    }
+  },
+  {
+    "content": "For persistent cough lasting more than 2 weeks with night sweats and weight loss, consider tuberculosis (TB). Refer patient for TB screening immediately. Do not delay referral.",
+    "metadata": {
+      "source": "WHO_TB_Guidelines",
+      "category": "respiratory",
+      "severity": "high"
+    }
+  },
+  {
+    "content": "Malaria symptoms include fever, chills, sweating, headache, and body aches. Rapid diagnostic test (RDT) should be performed. If positive, treat with artemisinin-based combination therapy (ACT) according to local protocols.",
+    "metadata": {
+      "source": "WHO_Malaria_Treatment",
+      "category": "infectious_disease",
+      "severity": "high"
+    }
+  },
+  {
+    "content": "For women experiencing vaginal bleeding during pregnancy, especially in the third trimester, this is a medical emergency. Transport to facility immediately. Keep patient lying down and monitor vital signs.",
+    "metadata": {
+      "source": "WHO_Maternal_Health",
+      "category": "pregnancy",
+      "severity": "critical"
+    }
+  },
+  {
+    "content": "Signs of severe dehydration in children include sunken eyes, no tears when crying, dry mouth and tongue, decreased urine output, and lethargy. Immediate referral to health facility for IV fluids is required.",
+    "metadata": {
+      "source": "WHO_Dehydration_Protocol",
+      "category": "pediatric",
+      "severity": "critical"
+    }
+  },
+  {
+    "content": "For suspected pneumonia in children (fast breathing, chest indrawing, fever): Give first dose of antibiotic (amoxicillin) and refer to health facility immediately. Do not delay treatment.",
+    "metadata": {
+      "source": "WHO_IMCI_Guidelines",
+      "category": "pediatric_respiratory",
+      "severity": "high"
+    }
+  },
+  {
+    "content": "Wound care: Clean wound with clean water and soap. Apply antiseptic if available. Cover with clean dressing. Watch for signs of infection: increased redness, swelling, pus, or fever. Refer if infection develops.",
+    "metadata": {
+      "source": "Basic_First_Aid",
+      "category": "injury",
+      "severity": "moderate"
+    }
+  },
+  {
+    "content": "For severe headache with stiff neck, sensitivity to light, and fever, suspect meningitis. This is a medical emergency. Refer to hospital immediately. Do not give aspirin.",
+    "metadata": {
+      "source": "WHO_Meningitis_Protocol",
+      "category": "neurological",
+      "severity": "critical"
+    }
+  },
+  {
+    "content": "Hypertension management: Blood pressure above 140/90 mmHg on two separate occasions indicates hypertension. Advise lifestyle modifications: reduce salt, exercise, maintain healthy weight. Refer for medication if BP remains high.",
+    "metadata": {
+      "source": "WHO_Hypertension_Guidelines",
+      "category": "chronic_disease",
+      "severity": "moderate"
+    }
+  },
+  {
+    "content": "For diabetes patients: Monitor blood sugar regularly. Advise on diet (reduce sugars, increase fiber), regular exercise. Watch for complications: foot ulcers, vision changes, frequent infections. Regular follow-up essential.",
+    "metadata": {
+      "source": "WHO_Diabetes_Management",
+      "category": "chronic_disease",
+      "severity": "moderate"
+    }
+  },
+  {
+    "content": "HIV/AIDS patients on antiretroviral therapy (ART): Medication must be taken daily without interruption. Common side effects include nausea, headache. Refer if severe side effects, signs of treatment failure, or opportunistic infections.",
+    "metadata": {
+      "source": "WHO_HIV_Treatment",
+      "category": "infectious_disease",
+      "severity": "high"
+    }
+  }
+]
