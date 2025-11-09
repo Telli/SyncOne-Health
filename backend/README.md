@@ -107,6 +107,100 @@ Request:
 ### Health Check
 **GET** `/api/v1/inference/health`
 
+### Remote Wipe (Admin Only)
+**POST** `/api/v1/admin/remote-wipe`
+
+Requires authentication with `Admin` role.
+
+Request:
+```json
+{
+  "deviceId": "device-123",
+  "reason": "Device reported lost/stolen"
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Wipe initiated"
+}
+```
+
+The backend sends an FCM message to the device with:
+```json
+{
+  "action": "REMOTE_WIPE",
+  "auth_token": "base64(payload):base64(signature)",
+  "timestamp": 1699564800000
+}
+```
+
+#### Android Client Token Validation
+
+The Android client **MUST** validate the auth token before performing the wipe:
+
+```kotlin
+// Example Kotlin validation code
+fun validateWipeToken(
+    token: String,
+    deviceId: String,
+    adminId: String,
+    secret: String
+): Boolean {
+    try {
+        // Parse token format: base64(payload):base64(signature)
+        val parts = token.split(":")
+        if (parts.size != 2) return false
+        
+        val payloadBase64 = parts[0]
+        val providedSignature = parts[1]
+        
+        // Decode payload
+        val payload = String(Base64.decode(payloadBase64, Base64.DEFAULT))
+        val payloadParts = payload.split(":")
+        
+        if (payloadParts.size != 3) return false
+        
+        val tokenDeviceId = payloadParts[0]
+        val tokenAdminId = payloadParts[1]
+        val tokenTimestamp = payloadParts[2].toLong()
+        
+        // Validate device ID and admin ID match
+        if (tokenDeviceId != deviceId) return false
+        
+        // Verify HMAC signature
+        val mac = Mac.getInstance("HmacSHA256")
+        val secretKey = SecretKeySpec(secret.toByteArray(), "HmacSHA256")
+        mac.init(secretKey)
+        val expectedHash = mac.doFinal(payload.toByteArray())
+        val expectedSignature = Base64.encodeToString(expectedHash, Base64.NO_WRAP)
+        
+        if (providedSignature != expectedSignature) return false
+        
+        // Check token expiration (5 minutes default)
+        val currentTimestamp = System.currentTimeMillis() / 1000
+        val tokenAge = currentTimestamp - tokenTimestamp
+        
+        if (tokenAge > 300) return false // 300 seconds = 5 minutes
+        if (tokenAge < 0) return false // Token from the future
+        
+        return true
+    } catch (e: Exception) {
+        Log.e("RemoteWipe", "Token validation failed", e)
+        return false
+    }
+}
+```
+
+**Security Notes:**
+- The token expires after 5 minutes (configurable via `RemoteWipe:TokenExpirationMinutes`)
+- Tokens are signed with HMAC-SHA256 to prevent tampering
+- Each token includes device ID and admin ID to prevent replay across devices
+- Timestamp validation prevents replay attacks
+- The secret key must be securely stored on both server and device
+
 ## Configuration
 
 ### appsettings.json
