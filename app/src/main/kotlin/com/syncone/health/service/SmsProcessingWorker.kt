@@ -10,20 +10,23 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.syncone.health.R
 import com.syncone.health.data.sms.SmsSender
+import com.syncone.health.domain.model.PromptContext
 import com.syncone.health.domain.model.enums.MessageStatus
 import com.syncone.health.domain.model.enums.UrgencyLevel
 import com.syncone.health.domain.usecase.BuildPromptUseCase
 import com.syncone.health.domain.usecase.ManageThreadContextUseCase
 import com.syncone.health.domain.usecase.ProcessIncomingSmsUseCase
 import com.syncone.health.domain.usecase.SendSmsReplyUseCase
+import com.syncone.health.domain.usecase.routing.SmartRoutingUseCase
 import com.syncone.health.util.Constants
+import com.syncone.health.util.TokenCounter
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import timber.log.Timber
 
 /**
  * Background worker that processes incoming SMS messages.
- * Handles AI inference (stub), context management, and reply sending.
+ * Handles AI inference via SmartRouting, context management, and reply sending.
  */
 @HiltWorker
 class SmsProcessingWorker @AssistedInject constructor(
@@ -33,6 +36,7 @@ class SmsProcessingWorker @AssistedInject constructor(
     private val sendSmsReplyUseCase: SendSmsReplyUseCase,
     private val manageContextUseCase: ManageThreadContextUseCase,
     private val buildPromptUseCase: BuildPromptUseCase,
+    private val smartRoutingUseCase: SmartRoutingUseCase,
     private val smsSender: SmsSender
 ) : CoroutineWorker(context, workerParams) {
 
@@ -49,7 +53,7 @@ class SmsProcessingWorker @AssistedInject constructor(
             // Handle RESET command
             if (processResult.isResetCommand) {
                 val resetReply = "Conversation reset. You can start a new query."
-                sendReply(processResult.threadId, phoneNumber, resetReply)
+                sendReply(processResult.threadId, phoneNumber, resetReply, confidence = 1.0f)
                 return Result.success()
             }
 
@@ -61,23 +65,46 @@ class SmsProcessingWorker @AssistedInject constructor(
             // Get conversation context
             val context = manageContextUseCase.getContext(processResult.threadId)
 
-            // Build prompt
-            val prompt = buildPromptUseCase(context, message)
+            // Build prompt context for AI inference
+            val promptContext = PromptContext(
+                userMessage = message,
+                conversationHistory = context?.turns ?: emptyList(),
+                tokensUsed = context?.tokenCount ?: TokenCounter.estimate(message),
+                threadId = processResult.threadId
+            )
 
-            // Phase 1: Stub AI response
-            val aiResponse = generateStubResponse(message)
+            // Phase 2: Real AI inference via smart routing
+            val aiResult = smartRoutingUseCase(promptContext)
+
+            Timber.d("AI inference: model=${aiResult.model}, confidence=${aiResult.confidence}, time=${aiResult.inferenceTimeMs}ms")
 
             // Update context with new turn
             val updatedContext = buildPromptUseCase.buildUpdatedContext(
                 threadId = processResult.threadId,
                 existingContext = context,
                 newUserMessage = message,
-                aiResponse = aiResponse
+                aiResponse = aiResult.response
             )
             manageContextUseCase.saveContext(updatedContext)
 
-            // Send reply
-            sendReply(processResult.threadId, phoneNumber, aiResponse)
+            // Check confidence threshold for CHW review
+            if (aiResult.confidence < CONFIDENCE_THRESHOLD) {
+                Timber.w("Low confidence (${aiResult.confidence}), holding for CHW review")
+                sendReplyPendingReview(
+                    threadId = processResult.threadId,
+                    phoneNumber = phoneNumber,
+                    message = aiResult.response,
+                    confidence = aiResult.confidence
+                )
+            } else {
+                // Auto-send high-confidence response
+                sendReply(
+                    threadId = processResult.threadId,
+                    phoneNumber = phoneNumber,
+                    message = aiResult.response,
+                    confidence = aiResult.confidence
+                )
+            }
 
             Timber.d("SMS processing completed for $phoneNumber")
             return Result.success()
@@ -88,13 +115,21 @@ class SmsProcessingWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun sendReply(threadId: Long, phoneNumber: String, message: String) {
+    /**
+     * Send reply with auto-send (high confidence).
+     */
+    private suspend fun sendReply(
+        threadId: Long,
+        phoneNumber: String,
+        message: String,
+        confidence: Float
+    ) {
         // Save to database
         val messageId = sendSmsReplyUseCase(
             threadId = threadId,
             content = message,
             isManual = false,
-            aiConfidence = 0.7f // Stub confidence
+            aiConfidence = confidence
         )
 
         // Actually send SMS
@@ -110,11 +145,28 @@ class SmsProcessingWorker @AssistedInject constructor(
     }
 
     /**
-     * Phase 1 stub: Simple auto-reply.
-     * Phase 2: Replace with actual TFLite inference.
+     * Save reply pending CHW review (low confidence).
+     * Message is saved but not sent yet.
      */
-    private fun generateStubResponse(userMessage: String): String {
-        return Constants.AUTO_REPLY_DEFAULT
+    private suspend fun sendReplyPendingReview(
+        threadId: Long,
+        phoneNumber: String,
+        message: String,
+        confidence: Float
+    ) {
+        // Save to database with PENDING status
+        val messageId = sendSmsReplyUseCase(
+            threadId = threadId,
+            content = message,
+            isManual = false,
+            aiConfidence = confidence
+        )
+
+        // Set status to PENDING (not sent yet)
+        sendSmsReplyUseCase.updateStatus(messageId, MessageStatus.PENDING)
+
+        // TODO: Notify CHW for review
+        Timber.d("Message $messageId held for CHW review (confidence: $confidence)")
     }
 
     private fun showCriticalAlert(phoneNumber: String) {
@@ -147,5 +199,6 @@ class SmsProcessingWorker @AssistedInject constructor(
     companion object {
         const val KEY_PHONE_NUMBER = "phone_number"
         const val KEY_MESSAGE = "message"
+        private const val CONFIDENCE_THRESHOLD = 0.7f
     }
 }
