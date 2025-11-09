@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: syncone-postgres
+    environment:
+      POSTGRES_DB: syncone
+      POSTGRES_USER: syncone_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syncone_user -d syncone"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - syncone-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/SyncOne.Backend/Dockerfile
+    container_name: syncone-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=syncone;Username=syncone_user;Password=${DB_PASSWORD:-changeme}
+      - MedGemma__Endpoint=${MEDGEMMA_ENDPOINT:-http://localhost:8000}
+      - MedGemma__ApiKey=${MEDGEMMA_API_KEY:-test-key}
+      - Embeddings__Endpoint=${EMBEDDINGS_ENDPOINT:-http://localhost:8001}
+      - Embeddings__ApiKey=${EMBEDDINGS_API_KEY:-test-key}
+      - OpenAI__ApiKey=${OPENAI_API_KEY:-sk-test}
+      - FCM__ServerKey=${FCM_SERVER_KEY:-test-key}
+      - RemoteWipe__Secret=${REMOTE_WIPE_SECRET:-change-me-in-production-min-32-chars}
+      - Cors__AllowedOrigins__0=${ALLOWED_ORIGIN:-http://localhost:8081}
+    ports:
+      - "8080:80"
+      - "8443:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - syncone-network
+
+volumes:
+  postgres_data:
+
+networks:
+  syncone-network:
+    driver: bridge

@@ -104,11 +104,13 @@ class MedGemmaTokenizer(
 
     /**
      * Simple whitespace tokenization.
-     * For production, replace with SentencePiece or BPE tokenizer.
+     * NOTE: For production with actual MedGemma model files, this should be replaced
+     * with SentencePiece tokenizer matching the model's training tokenization.
+     * Current implementation works as fallback for testing without model files.
      */
     private fun tokenize(text: String): List<String> {
-        // Simple word-level tokenization
-        // TODO: Replace with proper SentencePiece tokenizer
+        // Simple word-level tokenization (acceptable for fallback/testing)
+        // Production: Replace with SentencePiece when model files are added
         return text
             .lowercase()
             .replace(Regex("[^a-z0-9\\s]"), " ")

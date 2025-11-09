@@ -21,7 +21,7 @@ import javax.inject.Singleton
 @Singleton
 class AgentClient @Inject constructor() {
 
-    private val baseUrl = "https://api.syncone.health/" // TODO: Configure via BuildConfig
+    private val baseUrl = BuildConfig.API_BASE_URL
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(baseUrl)
@@ -112,7 +112,8 @@ class AuthInterceptor : Interceptor {
     }
 
     private fun getApiKey(): String {
-        // TODO: Store API key securely (BuildConfig, environment variable, or secure storage)
-        return "PLACEHOLDER_API_KEY" // Replace with actual key management
+        // API key from BuildConfig (set during build)
+        // For production, ensure API_KEY is set via gradle.properties or environment variable
+        return BuildConfig.API_KEY.ifEmpty { "PLACEHOLDER_API_KEY" }
     }
 }
