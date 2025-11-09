@@ -7,18 +7,30 @@ import android.os.Build
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import com.syncone.health.data.local.ml.ModelManager
 import com.syncone.health.service.ThreadExpirationWorker
 import com.syncone.health.util.Constants
+import com.syncone.health.util.GuidelineSeeder
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 /**
  * Application class for SyncOne Health.
- * Initializes Timber, notification channels, and periodic workers.
+ * Initializes Timber, notification channels, ML models, and periodic workers.
  */
 @HiltAndroidApp
 class SyncOneApplication : Application() {
+
+    @Inject
+    lateinit var modelManager: ModelManager
+
+    @Inject
+    lateinit var guidelineSeeder: GuidelineSeeder
 
     override fun onCreate() {
         super.onCreate()
@@ -35,6 +47,31 @@ class SyncOneApplication : Application() {
 
         // Schedule periodic workers
         schedulePeriodicWorkers()
+
+        // Initialize ML models asynchronously
+        initializeModels()
+    }
+
+    /**
+     * Initialize ML models in background.
+     * Models will load on app start, but app remains functional if loading fails.
+     */
+    private fun initializeModels() {
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            try {
+                Timber.i("Initializing ML models...")
+                modelManager.initialize()
+
+                // Seed medical guidelines after models are ready
+                if (modelManager.isEmbeddingReady()) {
+                    guidelineSeeder.seedGuidelines()
+                }
+
+                Timber.i("ML initialization complete")
+            } catch (e: Exception) {
+                Timber.e(e, "ML model initialization failed - app will use cloud fallback")
+            }
+        }
     }
 
     private fun createNotificationChannels() {

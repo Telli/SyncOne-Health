@@ -8,10 +8,12 @@ import com.syncone.health.data.local.database.dao.AuditLogDao
 import com.syncone.health.data.local.database.dao.ConversationContextDao
 import com.syncone.health.data.local.database.dao.SmsMessageDao
 import com.syncone.health.data.local.database.dao.SmsThreadDao
+import com.syncone.health.data.local.database.dao.VectorChunkDao
 import com.syncone.health.data.local.database.entity.AuditLogEntity
 import com.syncone.health.data.local.database.entity.ConversationContextEntity
 import com.syncone.health.data.local.database.entity.SmsMessageEntity
 import com.syncone.health.data.local.database.entity.SmsThreadEntity
+import com.syncone.health.data.local.database.entity.VectorChunkEntity
 import com.syncone.health.data.local.security.EncryptionKeyManager
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
@@ -25,9 +27,10 @@ import net.sqlcipher.database.SupportFactory
         SmsThreadEntity::class,
         SmsMessageEntity::class,
         ConversationContextEntity::class,
-        AuditLogEntity::class
+        AuditLogEntity::class,
+        VectorChunkEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class SyncOneDatabase : RoomDatabase() {
@@ -36,6 +39,7 @@ abstract class SyncOneDatabase : RoomDatabase() {
     abstract fun smsMessageDao(): SmsMessageDao
     abstract fun conversationContextDao(): ConversationContextDao
     abstract fun auditLogDao(): AuditLogDao
+    abstract fun vectorChunkDao(): VectorChunkDao
 
     companion object {
         private const val DATABASE_NAME = "syncone_health.db"

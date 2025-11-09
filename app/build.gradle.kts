@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    kotlin("plugin.serialization") version "1.9.20"
 }
 
 android {
@@ -53,10 +54,16 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.4"
+    }
+
+    // Keep TFLite model files uncompressed
+    androidResources {
+        noCompress += listOf("tflite", "lite", "json", "txt")
     }
 
     packaging {
@@ -114,7 +121,19 @@ dependencies {
     // Logging
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    // Retrofit (for Phase 3)
+    // TensorFlow Lite (Phase 2 - AI Integration)
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.4")
+
+    // ONNX Runtime (alternative for some models)
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.16.3")
+
+    // Kotlin Serialization for JSON
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    // Retrofit (for Phase 2 cloud API)
     val retrofitVersion = "2.9.0"
     implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
     implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion")
